@@ -14,13 +14,16 @@ Keychain 只枚举并严格匹配已知 service 元数据，禁止 `security` �
 
 - 默认保留 `security` 与临时 `claude-security-guidance-*`；只有 `--include-shared-security` 才扩大对应范围。它们可能被 Codex 或其他工具共用。
 - Git `worktrees` 始终保护。项目、根部说明和 Cowork 文件遵守各自选项；不扫描所有仓库，不动 `.git`、源码、共享 `.mcp.json`、`AGENTS.md` 或其他 AI 工具。
-- 清理浏览器 native manifest 不等于卸扩展或删站点资料。扩展、cookies、Local Storage、IndexedDB、History、shared profile 保留 UI 人工处理，不删整个数据库或目录。
+- 清理浏览器 native manifest 不等于卸扩展或删站点资料。站点目录默认人工；只有 `--include-browser-site-data` 才将支持的 Chromium 根/profile 下 `https://claude.ai`、`https://console.anthropic.com`、`https://platform.claude.com` 的六种精确 legacy IndexedDB LevelDB/blob 目录纳入。只取目录与身份元数据，不读取数据库内容；拒绝父路径链接、叶子链接、其他 UID、非目录与身份变化，继续使用现有 Remover。
+- 共享 Cookies、History、Local Storage、Service Worker、CacheStorage、官方扩展及其扩展 origin、未知 origin/端口、自定义位置与分区/bucket/新版布局继续人工核对。浏览器 UI 是共享站点存储的推荐入口，禁止清空整个 IndexedDB、共享数据库或 profile。
 - 系统 daemon、MDM、组织策略、TCC、系统日志和安全保护不自动修改，不 sudo、不 root，不关闭系统防护或重置全部应用权限。
 - 未证明归属的备份、改包、账户快照、外置盘、副本和共享依赖保留/人工。深度清理不解除有限白名单和身份检查。
 
 ## 运行与信任
 
 相关程序仍运行时拒绝执行，不自动 kill 用户进程，也不重启系统服务或浏览器。关闭程序是用户操作，不把强制终止隐藏在普通清理中。
+
+浏览器选项开启时，支持范围内的 Chromium 浏览器 family 主进程或 Helper 任一仍运行，必须阻断 `--apply`；执行前重新核对。`--verify` 在这些进程仍运行时也不能成功，即使当前未发现目录。预览可在运行状态列出目标和阻断信息，不能为了让计划可执行自动关闭浏览器或读取其共享存储。进程盘点失败也不能当作已经退出。
 
 不下载执行第三方脚本，不调用任意 shell startup、插件、MCP server、凭据 helper 或配置内命令。环境变量、文件名、安装元数据和外部命令输出都是不受信任输入，要验证其路径与类型，不拼成 shell 代码。
 
@@ -30,4 +33,4 @@ Keychain 只枚举并严格匹配已知 service 元数据，禁止 `security` �
 
 回归验证使用临时夹具和命令替身，覆盖越界目标未被写入/删除。真实破坏性测试需要该次明确授权与可丢弃环境，不在维护者已登录的日常安装上“顺手验证”。
 
-人工残留、未知盘点和执行失败必须影响结果，禁止把它们汇总成全部成功。`known_scope_clean` 只说明选定已知范围，不能写“全盘擦除”“所有痕迹消失”“不可恢复”或“云端已注销”。
+人工残留、未知盘点和执行失败必须影响结果，禁止把它们汇总成全部成功。`known_scope_clean` 只说明选定已知范围，不能写“全盘擦除”“所有痕迹消失”“不可恢复”“所有浏览器会话已清”或“云端已注销”。浏览器专属 IndexedDB 的真实删除与同范围复查未完成时，单独记录缺口；源码与隔离测试不能代替这层验收。

@@ -6,9 +6,10 @@ require_relative 'planner'
 require_relative 'remover'
 require_relative 'system'
 require_relative 'auditor'
+require_relative 'browser_data'
 
 module ClaudeCleaner
-  VERSION = '0.1.0'
+  VERSION = '0.1.1'
 
   class CLI
     def initialize(home: File.realpath(Dir.home), app_roots: nil, prefixes: nil,
@@ -75,6 +76,14 @@ module ClaudeCleaner
         report[:remaining] = public_plan(inventory(options))
         return finish(report, options, 1)
       end
+      if options[:include_browser_site_data]
+        guard = @system.browser_processes
+        unless guard[:processes].empty? && guard[:issues].empty?
+          report[:status] = results.empty? ? 'blocked' : 'incomplete'
+          report[:results], report[:remaining] = results, public_plan(inventory(options))
+          return finish(report, options, 1)
+        end
+      end
       roots = [@home] + @app_roots + plan[:prefixes] + @runtime_roots + options[:projects]
       roots = roots.uniq.reject { |root| roots.any? { |other| root != other && root.start_with?(other + '/') } }
       configs = plan[:configuration_roots]
@@ -82,7 +91,17 @@ module ClaudeCleaner
       protected.concat(configs.map { |config| File.join(config, 'security') }) unless options[:include_shared_security]
       remover = Remover.new(allowed_roots: roots.select { |root| File.directory?(root) && !File.symlink?(root) },
                             protected_paths: protected.uniq)
-      results.concat(plan[:targets].map { |target| remover.remove(target) })
+      browser_paths = plan[:browser_targets].map(&:path)
+      plan[:targets].each do |target|
+        if browser_paths.include?(target.path)
+          guard = @system.browser_processes
+          unless guard[:processes].empty? && guard[:issues].empty?
+            results << {path: target.path, status: 'failed', error: 'Browser process started or process inventory failed before deletion'}
+            break
+          end
+        end
+        results << remover.remove(target)
+      end
       remaining = inventory(options)
       report[:results], report[:remaining] = results, public_plan(remaining)
       success = clean?(remaining) && results.none? { |r| r[:status] == 'failed' }
@@ -111,6 +130,7 @@ module ClaudeCleaner
         p.on('--include-project-instructions', '同时删除所指定项目的 CLAUDE.md / CLAUDE.local.md') { options[:include_project_instructions] = true }
         p.on('--include-cowork-files', '同时删除 ~/Claude 和 ~/Documents/Claude 中的用户产物') { options[:include_cowork_files] = true }
         p.on('--include-shared-security', '同时清共享 security 状态，可能影响 Codex，谨慎选择') { options[:include_shared_security] = true }
+        p.on('--include-browser-site-data', '纳入已知 Claude 网站专属 IndexedDB 目录；须退出支持的 Chromium 浏览器') { options[:include_browser_site_data] = true }
         p.on('-h', '--help', '显示帮助') { options[:help] = true }
         p.on('--version', '显示版本') { options[:version] = true }
       end
@@ -126,12 +146,17 @@ module ClaudeCleaner
                             include_project_instructions: !!options[:include_project_instructions],
                             include_cowork_files: !!options[:include_cowork_files])
       targets = planner.targets
-      manual = @auditor.findings + planner.preserved.select do |item|
+      browser = options[:include_browser_site_data] ? BrowserData.new(home: @home, uid: @uid) : nil
+      browser_targets = browser ? browser.targets : []
+      selected_browser_paths = browser_targets.map(&:path)
+      browser_guard = options[:include_browser_site_data] ? @system.browser_processes : {processes: [], issues: []}
+      manual = @auditor.findings.reject { |finding| selected_browser_paths.include?(finding[:path]) } + planner.preserved.select do |item|
         item[:reason].match?(/manual|Cowork|Git worktrees|unverified/i)
       end
-      { targets: targets, preserved: planner.preserved, issues: planner.issues + system[:issues] + @runtime_issues,
-        actions: system[:actions], processes: system[:processes], manual: manual, prefixes: prefixes,
-        configuration_roots: planner.configuration_roots }
+      { targets: targets + browser_targets, preserved: planner.preserved,
+        issues: planner.issues + system[:issues] + @runtime_issues + (browser ? browser.issues : []) + browser_guard[:issues],
+        actions: system[:actions], processes: system[:processes] + browser_guard[:processes], manual: manual, prefixes: prefixes,
+        configuration_roots: planner.configuration_roots, browser_targets: browser_targets }
     end
 
     def discover_runtime_roots
@@ -182,8 +207,9 @@ module ClaudeCleaner
     def base_report(options, plan)
       { version: VERSION, generated_at: Time.now.utc.iso8601,
         mode: options[:apply] ? 'apply' : (options[:verify] ? 'verify' : 'preview'),
+        scope: { include_browser_site_data: !!options[:include_browser_site_data] },
         plan: public_plan(plan),
-        limits: ['浏览器站点数据/扩展须在浏览器 UI 核对', '不清云端、其他用户、系统历史日志或独立备份/快照',
+        limits: ['选中的站点专属 IndexedDB 可在浏览器退出后清理；其余浏览器站点数据/扩展须在 UI 核对', '不清云端、其他用户、系统历史日志或独立备份/快照',
                  '项目文件仅在显式指定范围处理；共享 MCP/AGENTS.md 不删',
                  'Cookie、Local Storage、浏览器注册与自定义 IDE 配置仍须人工核验；本工具不读共享浏览器数据库',
                  'known_scope_clean 仅代表本版本已知清单通过复查，不代表全盘或所有浏览器数据已清除'] }
@@ -202,7 +228,10 @@ module ClaudeCleaner
       plan[:preserved].each { |p| @out.puts "  保留 #{p[:path]} — #{p[:reason]}" }
       plan[:issues].each { |issue| @out.puts "  待处理 #{issue}" }
       plan[:manual].each { |item| @out.puts "  需人工 #{item[:path]} — #{item[:reason]}" }
-      plan[:processes].each { |p| @out.puts "  请先退出 Claude 进程 PID=#{p[:pid]}" }
+      plan[:processes].each do |process|
+        label = process[:kind] == 'browser' ? '浏览器及 Helper' : 'Claude'
+        @out.puts "  请先退出 #{label} 进程 PID=#{process[:pid]}"
+      end
       @out.puts "已知待清路径 #{plan[:paths].length}，系统操作 #{plan[:actions].length}，盘点问题 #{plan[:issues].length}，人工项 #{plan[:manual].length}。"
       @out.puts '本工具会永久删除配置、登录、会话、记忆、技能和插件；无自动备份。' if report[:mode] == 'preview'
       report[:limits].each { |limit| @out.puts "  边界：#{limit}" }

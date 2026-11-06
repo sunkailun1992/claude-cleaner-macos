@@ -29,6 +29,7 @@
 | S14 | [Anthropic issue #21582](https://github.com/anthropics/claude-code/issues/21582) 与 [#46447](https://github.com/anthropics/claude-code/issues/46447) | Desktop 还可注册 `com.anthropic.claude_browser_extension.json`，指向 Desktop 的 `chrome-native-host`；卸载 App 后可能残留 manifest。 | 作为第二个精确 manifest 名称依据。用户报告是布局线索，不是上游对所有版本的兼容性承诺。 |
 | S15 | [Chrome：Native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging#native-messaging-host-location) | 用户级与系统级 manifest 位置不同；Chrome for Testing 也有独立位置。系统级 Chrome 示例为 `/Library/Google/Chrome/NativeMessagingHosts/`。 | 当前用户范围不提升为系统删除权限。系统级注册和自定义浏览器位置需要人工核对，不能用用户目录通过来覆盖它们。 |
 | S16 | [官方 Chrome 扩展](https://chromewebstore.google.com/detail/claude/fcoeoabgfenejglbffodgkkbkcdhcgfn)；[Google：卸载扩展](https://support.google.com/chrome/answer/2664769?hl=en)；[按站点管理数据](https://support.google.com/chrome/answer/95647/clear-enable-and-manage-cookies-in-chrome-computer) | 官方扩展 ID 为 `fcoeoabgfenejglbffodgkkbkcdhcgfn`；扩展卸载和站点 cookie/data 可通过浏览器 UI 单独完成。 | manifest 清理不等于扩展或站点数据已清除。拒绝删除整个 Cookies、Local Storage、IndexedDB、History 或浏览器 profile。 |
+| S30 | [Chromium：IndexedDB 路径实现](https://chromium.googlesource.com/chromium/src/+/3d7558df82a016802b43cdfb284a2ae20bde0b10/content/browser/indexed_db/file_path_util.cc)；[origin 标识编码](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/storage/common/database/database_identifier.cc) 与[编码测试](https://chromium.googlesource.com/chromium/src/+/refs/heads/main/storage/common/database/database_identifier_unittest.cc) | first-party 默认 bucket 的 legacy 布局使用序列化 origin 加 `.indexeddb.leveldb` / `.indexeddb.blob`；编码为 scheme、host、port，默认端口编码成 `0`。第三方/非默认 bucket 使用不同布局；源码还存在其他数据库布局。 | 仅支持明确三个 HTTPS origin 在已识别 Chromium 根/profile 下的六种专属 legacy 目录；只有 `--include-browser-site-data` 才自动纳入。不能由这些来源推断整个 IndexedDB、所有分区存储或所有浏览器会话都已覆盖。来源核对仅访问公开源码，不读取用户数据库。 |
 
 ## 钥匙串、Cowork 与系统边界
 
@@ -63,5 +64,7 @@ Claude 官方的 `~/.claude/backups/` 随已知数据根清理；用户自行复
 ## 本项目自己的保留策略
 
 以下为保守的产品决策，不冒称 Anthropic 官方目录契约：默认保留 `~/.claude/security` 和临时根下的 `claude-security-guidance-*`，因为这些安全资料可能由 Codex 或其他工具共用；只有显式选择 `--include-shared-security` 才纳入对应候选。Git `worktrees`、共享 `.mcp.json`、`AGENTS.md`、用户另存产物、系统权限与共享依赖也不因名字含 Claude 而自动删除。
+
+浏览器站点资料默认仍人工处理。`--include-browser-site-data` 的三个 origin 白名单、目录类型/当前 UID 检查、拒绝父/叶链接、以及支持范围内 Chromium 浏览器与 Helper 全部退出的要求，是本项目的保守产品边界；上游路径实现不等于允许在浏览器运行时直接删除目录。共享 Cookies、History、Local Storage、Service Worker、CacheStorage 与官方扩展不读写，继续推荐浏览器 UI。未知 origin、自定义位置和分区/bucket/新版布局不能因有限复查没有目标就当作清除。新增范围尚未完成真实删除与同范围复查。
 
 具体版本已经实现的选项、计划状态及验收边界见 [coverage.md](coverage.md)。本页来源核对不构成真实设备执行或验收证明。

@@ -53,14 +53,53 @@
 | `--include-project-instructions` | 与选定项目配合，将该根部的 `CLAUDE.md`、`CLAUDE.local.md` 纳入。 | 不自动删除 `AGENTS.md` 或其他工具共享说明；Git 跟踪文件的删除是项目改动，用户应自行评估和提交。 |
 | `--include-cowork-files` | 将有限清单中的 `~/Claude` 与 `~/Documents/Claude` 用户文件目录纳入。 | 不搜索其他工作目录、下载目录、云盘或项目产物；这两个目录可能含用户自己的重要成果，名称并不代表可以恢复的缓存。 |
 | `--include-shared-security` | 将选定 Claude 配置目录下的 `security` 和支持的临时根中 `claude-security-guidance-*` 候选纳入。 | 这些资料可能被 Codex 或其他工具共用。选项不是卸载其他 AI 工具的授权，也不解除 `worktrees` 保护。 |
+| `--include-browser-site-data` | 将下节列出的三个 HTTPS origin 的六种专属 legacy IndexedDB 目录纳入；仅限已支持的 Chromium 默认根/profile。 | 默认仍为人工。共享数据库、扩展、其他 origin、自定义位置与分区/bucket/新版布局不纳入；支持范围内的 Chromium 浏览器及 Helper 须全部退出。 |
 
 仅列出上述参数不表示当前运行已经使用它们。计划与报告必须反映实际参数和现存目标。
+
+### 浏览器专属 IndexedDB 的精确范围
+
+`--include-browser-site-data` 仅匹配以下路径相对于已识别 profile 的真实目录。HTTPS origin 使用默认端口的 legacy origin 编码；不做子串、通配域名、任意端口或全 `IndexedDB` 目录匹配。LevelDB 与 blob 分别列入现存计划；一项不存在不代表另一项也不存在。
+
+| HTTPS origin | 精确 LevelDB 目录 | 精确 blob 目录 |
+| --- | --- | --- |
+| `https://claude.ai` | `IndexedDB/https_claude.ai_0.indexeddb.leveldb` | `IndexedDB/https_claude.ai_0.indexeddb.blob` |
+| `https://console.anthropic.com` | `IndexedDB/https_console.anthropic.com_0.indexeddb.leveldb` | `IndexedDB/https_console.anthropic.com_0.indexeddb.blob` |
+| `https://platform.claude.com` | `IndexedDB/https_platform.claude.com_0.indexeddb.leveldb` | `IndexedDB/https_platform.claude.com_0.indexeddb.blob` |
+
+当前默认根均位于 `~/Library/Application Support/` 下：
+
+| 浏览器 family | 支持的相对根 |
+| --- | --- |
+| Chrome | `Google/Chrome`、`Google/Chrome Beta`、`Google/Chrome Dev`、`Google/Chrome Canary`、`Google/ChromeForTesting` |
+| Edge | `Microsoft Edge`、`Microsoft Edge Beta`、`Microsoft Edge Dev`、`Microsoft Edge Canary` |
+| Brave | `BraveSoftware/Brave-Browser` |
+| Chromium | `Chromium` |
+| Arc | `Arc/User Data` |
+| Vivaldi | `Vivaldi` |
+| Opera | `com.operasoftware.Opera` |
+
+Opera 根可以直接作为 profile；其他浏览器只选择安全的直接子 profile。命名为 `Default`、`Profile <name>`、`Guest Profile`、`System Profile` 的目录，以及带有常规 `Preferences` 文件的直接子目录按规则识别。不递归发现任意自定义位置，不支持 Safari/Firefox。已识别根/profile 也必须通过路径、类型和当前 UID 检查。
+
+候选只取目录名与 `lstat` 元数据，不读取 IndexedDB 内容。父路径链接、profile 链接、候选叶子链接、其他 UID、非目录、无法检查和身份变化均拒绝纳入或阻断执行并保留问题。实际删除使用现有 Remover 的边界与身份验证，不新增 shell 删除通道。
+
+只读预览允许浏览器运行，可以同时列出目标与进程阻断信息。选项开启时，支持范围内的 Chromium 浏览器及 Helper 须全部退出；任一仍运行时 `--apply` 被阻断、`--verify` 为非成功，即使本次没有发现可删目录。工具在执行前重验，不自动关闭、kill 或重启浏览器。执行与复查须保持同一范围：
+
+```bash
+./claude-cleaner --include-browser-site-data
+./claude-cleaner --include-browser-site-data --apply --yes
+./claude-cleaner --include-browser-site-data --verify
+```
+
+此选项不读写共享 Cookies、History、Local Storage、Service Worker、CacheStorage，不删除官方扩展及其扩展 origin 资料。其他 origin、端口、自定义根、第三方/分区 bucket、SQLite 或未来布局仍需人工；未列出不能视为不存在。Chromium 来源仅支持这里的 legacy 命名规则，不保证所有版本继续使用它。共享站点存储推荐在每个浏览器 profile 的站点数据界面按站点清除。
+
+`0.1.1` 新增范围当前尚未完成真实删除和同范围复查；浏览器暂不能退出时保持预览/阻断，不声称已清理。已知目录复查也不能说明所有浏览器登录态、会话、云端记录或设备间同步资料已清除。
 
 ## 人工处理和保留边界
 
 | 范围 | 为什么不自动破坏 | 建议核对方式 |
 | --- | --- | --- |
-| 浏览器扩展与站点数据 | Cookies、History、Local Storage、IndexedDB 和 profile 共享数据库同时保存其他网站的数据；Chrome 同步还可能把删除传播到其他设备。 | 在每个浏览器 profile 的扩展管理界面移除官方 Claude 扩展；在站点数据界面按 Claude/Anthropic 站点单独核对并清除。manifest 消失不代表这些步骤已完成。 |
+| 浏览器扩展与共享/未识别站点数据 | 默认可识别 IndexedDB 也只报人工；显式选项仅覆盖上节六种专属目录。Cookies、History、Local Storage、Service Worker、CacheStorage 与 profile 共享状态保存其他网站数据，不能清空共享数据库。 | 在每个浏览器 profile 的扩展管理界面移除官方 Claude 扩展；在站点数据界面按 Claude/Anthropic 站点单独核对并清除共享存储和未覆盖布局，并核对同步影响。manifest 或选定 IndexedDB 目录消失不代表这些步骤已完成。 |
 | JetBrains 未识别布局与自定义 IDE 位置 | 官方插件 ID 是 `com.anthropic.code.plugin`，标准根为 `~/Library/Application Support/JetBrains/<product><version>/plugins/`；设置可自定义，remote host 也独立。 | 对严格版本化 JAR 规则未覆盖的安装，经 IDE 的 Plugins 界面卸载 Claude Code [Beta]，关闭 IDE 后复查。不要删除整个 plugins、options、IDE cache 或日志。 |
 | 系统切换器 daemon | `/Library/LaunchDaemons/` 的第三方服务可能以管理员身份运行，删除用户目录不等于卸载这些服务。 | 本工具发现已知 system label 时报告人工。由用户/管理员核对原工具与所属文件，采用该工具正常卸载流程；本工具不 sudo，不替它修复系统设置。 |
 | MDM 与组织策略 | `/Library/Application Support/ClaudeCode/`、managed settings、managed MCP 和 MDM policy 归设备管理流程。 | 联系设备管理员；本工具不删系统策略，不把“用户数据已清除”说成“组织管理已撤销”。 |
@@ -78,7 +117,7 @@
 1. 默认预览未执行删除或卸载，明确列出候选与保留项；测试使用临时目录和注入系统命令，不接触开发者真实资料。
 2. 显式执行只作用于计划内、身份未变化的目标；父路径链接、目录替换、权限失败均不能被忽略。
 3. 执行后重新盘点已知路径、包、用户服务、相关运行进程与 Keychain 项；无法检查必须报告，而不是折算为不存在。
-4. 选项未开启时，项目说明、Cowork 文件、共享安全资料和 Git worktree 按相应规则保留；开启选项也不能越过其作用范围。
+4. 选项未开启时，项目说明、Cowork 文件、共享安全资料、浏览器站点目录和 Git worktree 按相应规则保留；开启选项也不能越过其作用范围。浏览器选项覆盖精确 LevelDB/blob 目录，并测试支持范围内的主进程/Helper 阻断、执行前重验及同范围复查；共享存储和扩展继续保留。
 5. 仍需人工处理的浏览器数据、未识别 JetBrains/custom IDE、系统 daemon、MDM、共享设置与历史副本逐项列出。已知残留复查通过和这些人工工作完成分别记录。
 
 合适的结论是“本次选定的已知范围通过复查，并列出保留/人工事项”。不要使用“全盘已擦除”“所有痕迹已消失”“不可恢复”或“云端已注销”来描述普通卸载结果。

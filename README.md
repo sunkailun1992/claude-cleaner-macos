@@ -4,7 +4,7 @@
 
 这是独立开源工具，不是 Anthropic 官方卸载器。默认只预览。执行会**永久删除**本机配置、登录状态、会话、记忆、技能和插件；不自动备份，也不搬到废纸篓。先阅读计划并自行保存要保留的资料。
 
-当前版本 `0.1.0` 已通过隔离夹具中的破坏性测试和真实环境只读盘点；尚未对真实已安装的全套 Claude 环境执行清理。该版本不能称为完成了全部实机卸载验收。
+当前版本 `0.1.1` 增加显式选择的浏览器专属 IndexedDB 清理；这项新增范围尚未完成真实环境删除与同范围复查。初始 `0.1.0` 的验收基线为隔离夹具破坏性测试和真实环境只读盘点，不能据此声称新增范围或全套实机卸载已验收。
 
 会话清理默认覆盖已知用户数据根内的**所有账户、所有项目和全部日期**，包含会话正文、历史、自动记忆、文件历史、计划、上传附件、内部备份，以及 Desktop/Cowork 数据根内的本机会话和 VM。它不按最近使用日期筛选。外部导出、改名副本和历史备份不能靠标准目录推定已经消失；发现不明确副本时列为人工待处理。
 
@@ -48,6 +48,7 @@
 | `--include-project-instructions` | 同时纳入已指定项目根的 `CLAUDE.md`、`CLAUDE.local.md`。 |
 | `--include-cowork-files` | 同时纳入 `~/Claude`、`~/Documents/Claude` 中的用户产物。 |
 | `--include-shared-security` | 同时纳入选定配置目录的 `security` 和支持的临时根中的 `claude-security-guidance-*`，可能影响 Codex 或其他共用工具。 |
+| `--include-browser-site-data` | 同时纳入支持的 Chromium 根/profile 下 `https://claude.ai`、`https://console.anthropic.com`、`https://platform.claude.com` 的专属 IndexedDB LevelDB/blob 目录；支持范围内的 Chromium 浏览器及 Helper 必须全部退出。 |
 | `--help` / `--version` | 显示帮助或源码版本。 |
 
 默认保留共享安全资料、Git `worktrees`、项目说明和 Cowork 用户文件。`worktrees` 始终保护；共享 `.mcp.json`、`AGENTS.md`、源码、其他 AI 工具和共享依赖不自动删除。路径包含不安全父链接、目标身份变化或归属不明确时拒绝或保留，不靠扩大匹配完成删除。
@@ -60,6 +61,25 @@
 ```
 
 预览与执行时使用相同范围参数；没有指定的项目、外置盘、历史自定义目录和其他用户不会被全量扫描。
+
+### 可选的浏览器专属 IndexedDB 清理
+
+默认只将可识别的浏览器站点目录列为人工项。显式 `--include-browser-site-data` 只增加上述三个 HTTPS origin 的 `IndexedDB/https_<host>_0.indexeddb.leveldb` 和 `.indexeddb.blob` 目录；不读取数据库内容。它不是清除所有浏览器会话或全部站点数据的开关。
+
+```bash
+# 浏览器运行时仍可预览目标与阻断信息，不执行删除
+./claude-cleaner --include-browser-site-data
+
+# 自行正常退出支持范围内的 Chromium 浏览器及其 Helper 后执行
+./claude-cleaner --include-browser-site-data --apply --yes
+
+# 使用同样范围只读复查
+./claude-cleaner --include-browser-site-data --verify
+```
+
+选项开启时，支持范围内任一 Chromium 浏览器进程（包括 Helper）仍运行，执行就被阻断，复查也不能报告成功；即使本次没发现目录，进程检查仍适用。工具在执行前重新检查，不会替用户退出或 kill 浏览器。候选必须是当前用户所有的真实目录；父路径链接、叶子链接、其他 UID 或非目录均拒绝。支持的默认根/profile 与六个精确目录名见 [覆盖范围](docs/coverage.md#浏览器专属-indexeddb-的精确范围)。
+
+共享 Cookies、History、Local Storage、Service Worker、CacheStorage 和官方 Claude 扩展继续保留；其他 origin、自定义位置、分区/新版存储布局仍需人工核对。建议通过每个浏览器 profile 的站点数据界面清理共享存储，并在扩展管理界面卸载扩展。当前这项新增范围未完成真实删除验收；浏览器暂不能退出时应保留预览和待执行状态。
 
 ## 报告如何理解
 
@@ -101,6 +121,6 @@ bash scripts/check.sh
 
 Claude Cleaner is an independent macOS tool for removing known Claude Desktop and Claude Code installations and local data for the current user. It previews by default. `--apply` requires `DELETE CLAUDE`; `--apply --yes` explicitly selects unattended permanent deletion. It never uses sudo or kills running applications.
 
-Shared security data, Git worktrees, project files and Cowork outputs have separate protection rules. Browser site data/extensions, managed policies and system services may require manual action; remaining manual findings prevent a complete result. JSON reports can contain private paths and must not be committed as-is.
+Shared security data, Git worktrees, project files and Cowork outputs have separate protection rules. Browser site data is manual by default. `--include-browser-site-data` opts into only the dedicated legacy IndexedDB LevelDB/blob directories for three explicit HTTPS origins: `claude.ai`, `console.anthropic.com`, and `platform.claude.com`. All supported Chromium browser families and helpers must be stopped before apply or successful verification. The tool never closes them. Shared cookies, history, Local Storage, Service Worker, CacheStorage, official extensions, unknown layouts and other origins remain outside automatic deletion. Use each browser profile's UI for shared site data and extensions. JSON reports can contain private paths and must not be committed as-is.
 
-Version 0.1.0 has sandbox destructive tests and real read-only inventory validation. Full destructive cleanup of a real installation has not been accepted. A clean known-scope report is not a guarantee of forensic erasure, cloud deletion or removal of every trace.
+Version 0.1.1 adds this explicit browser scope; real deletion and matching-scope verification of that new scope have not been accepted. Version 0.1.0's original baseline was sandbox destructive tests and real read-only inventory validation. A clean known-scope report is not a guarantee of forensic erasure, cloud deletion, removal of every trace, or clearing all browser sessions.

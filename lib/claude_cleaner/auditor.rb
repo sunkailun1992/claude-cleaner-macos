@@ -18,8 +18,11 @@ module ClaudeCleaner
     ].freeze
     SITE_PATHS = %w[
       IndexedDB/https_claude.ai_0.indexeddb.leveldb
+      IndexedDB/https_claude.ai_0.indexeddb.blob
       IndexedDB/https_console.anthropic.com_0.indexeddb.leveldb
+      IndexedDB/https_console.anthropic.com_0.indexeddb.blob
       IndexedDB/https_platform.claude.com_0.indexeddb.leveldb
+      IndexedDB/https_platform.claude.com_0.indexeddb.blob
     ].freeze
     MANAGED_PATHS = [
       'Application Support/ClaudeCode/managed-settings.json',

@@ -2,6 +2,16 @@
 
 本文件记录源码版本与用户可见行为。发布标签、CI、本地检查和真实设备验收分别取证；版本条目本身不证明已经发布。
 
+## 0.1.1 — 2026-11-06
+
+- 新增显式 `--include-browser-site-data`：默认浏览器项仍为人工；开启后只将支持的 Chromium 默认根/profile 中 `https://claude.ai`、`https://console.anthropic.com`、`https://platform.claude.com` 的专属 legacy IndexedDB `.indexeddb.leveldb` 与 `.indexeddb.blob` 目录纳入计划与现有 Remover。
+- 浏览器开启时可以只读预览目标和阻断信息；选项开启时，支持范围内任一 Chromium 浏览器主进程或 Helper 仍运行，执行被阻断且 `--verify` 不能成功，即使没有当前目录候选。执行前重新核对进程，不自动关闭或 kill 浏览器。
+- 浏览器目标拒绝父路径链接、叶子链接、其他 UID 和非目录，继续执行目录身份与竞态检查。报告保持本机私密，不能原样提交或公开。
+- 保留共享 Cookies、History、Local Storage、Service Worker、CacheStorage 和官方扩展；未知 origin、自定义位置、分区/bucket/新版布局继续人工核对。选项不表示已清除全部浏览器会话，浏览器 UI 仍是共享站点存储的推荐入口。
+- 同步精确覆盖范围、Chromium 官方来源与安全/测试规范，执行和复查示例使用相同范围参数。
+
+新增浏览器范围的真实验收状态：当前尚未执行并完成真实删除与同范围复查；浏览器暂不能退出时保持阻断。源码、隔离测试、真实只读预览、真实删除、用户验收和 CI 分别记录，不从本条目推定后续阶段已完成。
+
 ## 0.1.0 — 2026-11-06
 
 初始源码版本，提供 macOS Bash 启动器与 Ruby 2.6+ 标准库实现。

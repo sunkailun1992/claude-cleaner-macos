@@ -55,6 +55,14 @@ module ClaudeCleaner
                          'Claude Code', 'Claude Code-credentials'].freeze
     USER_LABELS = %w[local.claude-update local.claude-bodyguard].freeze
     SYSTEM_LABELS = %w[local.claude-bodyguard local.tz-watchdog local.claude-update].freeze
+    BROWSER_APPS = [
+      'Google Chrome', 'Google Chrome Beta', 'Google Chrome Dev', 'Google Chrome Canary',
+      'Google Chrome for Testing', 'Google ChromeForTesting', 'Microsoft Edge',
+      'Microsoft Edge Beta', 'Microsoft Edge Dev', 'Microsoft Edge Canary',
+      'Brave Browser', 'Brave Browser Beta', 'Brave Browser Nightly', 'Chromium',
+      'Arc', 'Vivaldi', 'Vivaldi Snapshot', 'Opera', 'Opera Beta', 'Opera Developer', 'Opera GX'
+    ].freeze
+    BROWSER_EXECUTABLE = %r{/(?:#{BROWSER_APPS.map { |name| Regexp.escape(name) }.join('|')})\.app/Contents/}.freeze
 
     def initialize(home:, uid:, runner: CommandRunner.new, brew_paths: nil, npm_paths: nil)
       @home, @uid, @runner = home, uid, runner
@@ -81,6 +89,19 @@ module ClaudeCleaner
       success = result[:status] == 0 || (action[:category] == 'keychain' && result[:status] == 44)
       { category: action[:category], reason: action[:reason],
         status: success ? 'removed' : 'failed', exit_status: result[:status] }
+    end
+
+    def browser_processes
+      result = @runner.call(['/bin/ps', '-ww', '-axo', 'pid=,uid=,comm='])
+      unless result[:status] == 0
+        return { processes: [], issues: ['browser process inventory failed; site data was not verified'] }
+      end
+      processes = result[:stdout].each_line.each_with_object([]) do |line, found|
+        pid, uid, executable = line.strip.split(/\s+/, 3)
+        next unless uid.to_i == @uid && executable && executable.match?(BROWSER_EXECUTABLE)
+        found << { pid: pid.to_i, executable: executable, kind: 'browser' }
+      end
+      { processes: processes, issues: [] }
     end
 
     private

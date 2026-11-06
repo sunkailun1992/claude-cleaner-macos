@@ -31,7 +31,7 @@
 3. 只处理有限白名单和明确选项；拒绝根目录、home 本身、路径穿越和不安全符号链接父路径。执行前重新验证目标身份；不能跟随链接删除外部内容。
 4. 默认保留 `security`、`claude-security-guidance-*` 和 Git `worktrees`；共享安全资料只有 `--include-shared-security` 才纳入，`worktrees` 始终保护。项目与 Cowork 用户文件按独立选项处理。
 5. 不读取或输出密码/token、会话正文、完整私有配置、共享浏览器数据库。不把真实扫描报告、机器路径、账号或私人资料提交到 Git。使用合成夹具。
-6. 浏览器扩展/站点数据、系统服务、MDM、未知安装与共享状态保留人工边界。人工残留、盘点错误或执行失败不能报成完全成功。
+6. 浏览器站点数据默认只报人工；只有 `--include-browser-site-data` 才纳入已支持 Chromium 根/profile 下三个明确 HTTPS origin 的专属 IndexedDB LevelDB/blob 目录。选项开启时，支持范围内的 Chromium 浏览器及 Helper 须全部退出，否则阻断执行与成功复查，执行前重验；不关闭或 kill 浏览器。共享 Cookies、History、Local Storage、Service Worker、CacheStorage、官方扩展、未知 origin/布局，以及系统服务、MDM、未知安装与共享状态保留人工边界。人工残留、盘点错误或执行失败不能报成完全成功。
 7. 规划通过、删除完成、已知范围复查、人工事项关闭、真实设备验收分别记录。`known_scope_clean` 不表示全盘或全部浏览器资料已擦除。
 8. 编码任务不自动授权对开发者真实安装环境运行清理。默认验证使用临时夹具与命令替身；真实破坏性试验须有该次明确授权及限定环境。
 

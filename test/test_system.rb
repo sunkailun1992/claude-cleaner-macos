@@ -113,4 +113,29 @@ class SystemTest < Minitest::Test
     plan = ClaudeCleaner::MacSystem.new(home: '/fake/home', uid: 501, runner: runner, brew_paths: [], npm_paths: []).snapshot
     assert_equal [230, 231], plan[:processes].map { |p| p[:pid] }
   end
+
+  def test_browser_guard_detects_supported_app_helpers_and_current_user_only
+    output = <<~TEXT
+      300 501 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+      301 501 /Applications/Google Chrome.app/Contents/Frameworks/Helpers/Google Chrome Helper.app/Contents/MacOS/Google Chrome Helper
+      302 501 /Applications/Microsoft Edge Beta.app/Contents/MacOS/Microsoft Edge Beta
+      303 501 /Applications/Brave Browser.app/Contents/Helpers/helper
+      304 501 /Applications/Arc.app/Contents/MacOS/Arc
+      305 501 /Applications/Vivaldi.app/Contents/MacOS/Vivaldi
+      306 501 /Applications/Opera.app/Contents/MacOS/Opera
+      307 501 /Applications/Chromium.app/Contents/MacOS/Chromium
+      308 502 /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+      309 501 /Applications/My Chrome Notes.app/Contents/MacOS/Notes
+    TEXT
+    runner = FakeRunner.new(['/bin/ps', '-ww', '-axo', 'pid=,uid=,comm='] => {status: 0, stdout: output, stderr: ''})
+    result = ClaudeCleaner::MacSystem.new(home: '/fake/home', uid: 501, runner: runner, brew_paths: [], npm_paths: []).browser_processes
+    assert_equal (300..307).to_a, result[:processes].map { |p| p[:pid] }
+    assert_empty result[:issues]
+  end
+
+  def test_browser_process_probe_failure_is_not_an_empty_clean_result
+    runner = FakeRunner.new(['/bin/ps', '-ww', '-axo', 'pid=,uid=,comm='] => {status: 1, stdout: '', stderr: 'failed'})
+    result = ClaudeCleaner::MacSystem.new(home: '/fake/home', uid: 501, runner: runner, brew_paths: [], npm_paths: []).browser_processes
+    refute_empty result[:issues]
+  end
 end
