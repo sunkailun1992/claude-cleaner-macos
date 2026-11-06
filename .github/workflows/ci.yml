@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  macos:
+    name: macos
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check with Apple's system Ruby
+        run: bash scripts/check.sh
+      - name: CLI entry points
+        run: |
+          ./claude-cleaner --help
+          ./claude-cleaner --version
+  linux-core:
+    name: linux-core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1
+        with:
+          ruby-version: '3.4'
+      - name: Install test-only Minitest
+        run: |
+          gem install minitest --version 5.25.5 --no-document
+          gem install rexml --version 3.4.4 --no-document
+      - name: Check platform-independent core with fixtures
+        run: bash scripts/check.sh

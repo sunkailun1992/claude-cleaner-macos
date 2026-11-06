@@ -1,0 +1,8 @@
+.DS_Store
+*.gem
+coverage/
+reports/
+*.local.json
+verification.json
+.bundle/
+vendor/
