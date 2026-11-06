@@ -10,3 +10,9 @@
 - 远端 CI、提交及分支规则以 GitHub 实际检查和规则为准，不由本地夹具结果替代。
 
 实际盘点报告含机器路径，未提交到公开仓库。本记录只含脱敏统计。
+
+## GitHub 初始交付证据
+
+初始实现提交为 [`97cb0684e021246440a158868c29e4ae2c014dc9`](https://github.com/sunkailun1992/claude-cleaner-macos/commit/97cb0684e021246440a158868c29e4ae2c014dc9)，已推送 `main`；其 [CI](https://github.com/sunkailun1992/claude-cleaner-macos/actions/runs/42195987867) 的 `macos` 与 `linux-core` 均通过。文档后续提交的状态应另看对应 GitHub 检查。
+
+初始化实际读回：公开、MIT、默认分支 `main`、PR 仅 squash；`main-integrity`（26683220）禁止删除/强推且无绕过；`main-owner-review`（26683223）要求一名代码所有者批准、过期批准失效、讨论解决及两个必需检查，管理员始终绕过该组 PR/检查规则。规则定义在 `.github/rulesets/`。这项初始化依用户明确的开源与贡献治理要求完成，不构成日后自动修改权限的授权。
