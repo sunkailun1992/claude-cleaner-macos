@@ -51,7 +51,7 @@ bash scripts/check.sh
 - 测试结果只能由输入决定，不依赖真实时间、执行顺序或本机遗留状态；需要等待的地方注入时钟或设总时限，不用固定延时赌时序。
 - 偶发失败按缺陷处理：先查明原因再修，不用自动重试、放宽断言、跳过或删除测试换取通过；确需临时跳过时写明原因与恢复条件，并在交付说明中列出。
 - 本机 macOS 通过不代表 CI 的 Linux 通过；只在一个平台验证过的结论要写明平台。
-- 系统 Ruby 2.6 在非 UTF-8 locale 下、仓库路径含非 ASCII 字符时，生成异常回溯会无限递归并崩溃（SIGILL/SIGSEGV）。`scripts/check.sh` 已自动改用 UTF-8 locale；单独运行测试文件时也要带上，例如 `LANG=en_US.UTF-8 /usr/bin/ruby -Ilib test/test_cli.rb`。
+- 系统 Ruby 2.6 在非 UTF-8 locale 下、仓库路径含非 ASCII 字符时，生成异常回溯会无限递归并崩溃（SIGILL/SIGSEGV）。`claude-cleaner` 与 `scripts/check.sh` 都经 `scripts/utf8-locale.sh` 按实际生效的字符集判断，不是 UTF-8 就改用 UTF-8 locale（包括 macOS 没有的 `zh_SG.UTF-8` 这类），`test/test_launcher.rb` 覆盖；单独运行测试文件时也要带上，例如 `LANG=en_US.UTF-8 /usr/bin/ruby -Ilib test/test_cli.rb`。
 
 ## 文档与发布复核
 
